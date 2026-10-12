@@ -28,10 +28,23 @@ const client = new Client({
 });
 
 
-function ForzarCola() {
+// Ciclo cada 30 segundos. Arranca solo al iniciar el script (no depende del evento ready)
+// y espera a que termine una vuelta antes de programar la siguiente.
+async function ForzarCola() {
     console.log("Buscando Mensajes... " + " " + new Date());
-         SacarColaSQL();
+    try {
+        let estado = null;
+        try { estado = await client.getState(); } catch (e) { /* WhatsApp Web aun cargando */ }
+        if (estado !== "CONNECTED") {
+            console.log("WhatsApp todavia no esta conectado (estado: " + estado + "), no leo la cola");
+        } else {
+            await SacarColaSQL();
+        }
+    } catch (err) {
+        console.error("Error en el ciclo: " + err.message);
+    } finally {
         setTimeout(ForzarCola, 30000); // cada 30 segundos
+    }
 }
 
 
@@ -42,7 +55,14 @@ async function SacarColaSQL() {
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
     try {
         const res = await fetch(URL_COLA);
-        const data = await res.json();
+        const texto = await res.text();
+        let data;
+        try {
+            data = JSON.parse(texto);
+        } catch (e) {
+            console.error("El ASP no devolvio JSON (HTTP " + res.status + "): " + texto.slice(0, 500));
+            return;
+        }
 
         console.log("Bandeja de Salida");
         console.log(data.items);
@@ -50,7 +70,7 @@ async function SacarColaSQL() {
         // Al arrancar, la primera lectura solo limpia la cola vieja (el ASP ya la marco status = 1)
         if (Inicio) {
             Inicio = false;
-            console.log("Acabo de Eliminar la Cola pendiente");
+            console.log("Acabo de Eliminar la Cola pendiente (" + data.items.length + " mensajes viejos no se envian)");
             return;
         }
 
@@ -72,6 +92,7 @@ async function SacarColaSQL() {
 
 // client initialize does not finish at ready now.
 client.initialize();
+setTimeout(ForzarCola, 15000);
 
 client.on('loading_screen', (percent, message) => {
     console.log('LOADING SCREEN', percent, message);
@@ -97,7 +118,6 @@ client.on('auth_failure', msg => {
 
 client.on('ready', async () => {
     console.log('READY');
-    setTimeout(ForzarCola, 9000);
     const debugWWebVersion = await client.getWWebVersion();
     console.log(`WWebVersion = ${debugWWebVersion}`);
 
