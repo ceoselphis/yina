@@ -1,4 +1,4 @@
-<!--#include virtual="/smsalarmas/include/scriptdb/parametros.inc"-->
+<!--#include file="../include/scriptdb/conectdb.asp"-->
 <%
 ' GET /smsalarmas/api/cola_whatsapp.asp   (sin token)
 ' Mismos queries de JermSoft5/example3.js:
@@ -31,11 +31,14 @@ End Sub
 Dim conn, rs, sb, first, idSalida
 
 On Error Resume Next
+Response.ContentType = "application/json; charset=utf-8"
 
-Set conn = Server.CreateObject("ADODB.Connection")
-conn.Open DB_CONNECTIONSTRING, DB_USERNAME, DB_PASSWORD
-If Err.Number <> 0 Then Call colaFalla("conectar")
-conn.CursorLocation = 3
+' Misma conexion que usa todo el sistema (include/scriptdb/conectdb.asp)
+Dim cmd
+Set cmd = conectdb()
+Set conn = cmd.ActiveConnection
+If Err.Number <> 0 Or conn Is Nothing Then Call colaFalla("conectar")
+If conn.State <> 1 Then Call colaFalla("conectar (conexion cerrada)")
 
 Set rs = conn.Execute("SELECT id_salida, movil, sms FROM sSMS_BsalidaSpeedWhatsApp WHERE status = 0")
 If Err.Number <> 0 Then Call colaFalla("select")
