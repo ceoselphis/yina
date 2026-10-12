@@ -64,6 +64,11 @@ async function SacarColaSQL() {
             return;
         }
 
+        if (!data.ok || !Array.isArray(data.items)) {
+            console.error("El ASP respondio con error: " + texto.slice(0, 500));
+            return;
+        }
+
         console.log("Bandeja de Salida");
         console.log(data.items);
 
