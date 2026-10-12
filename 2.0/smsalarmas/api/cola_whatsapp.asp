@@ -1,11 +1,26 @@
 <!--#include file="../include/scriptdb/parametros.inc"-->
-<!--#include file="_helpers.asp"-->
 <%
-' GET /smsalarmas/api/cola_whatsapp.asp
+' GET /smsalarmas/api/cola_whatsapp.asp   (sin token)
 ' Mismos queries de JermSoft5/example3.js:
 '   SELECT id_salida, movil, sms FROM sSMS_BsalidaSpeedWhatsApp WHERE status = 0
 '   UPDATE sSMS_BsalidaSpeedWhatsApp SET status = 1 WHERE id_salida = <id>
 ' Devuelve los mensajes en JSON y los deja en status = 1.
+
+Response.CodePage = 65001
+Response.CharSet = "utf-8"
+Response.ContentType = "application/json; charset=utf-8"
+Response.Expires = -1
+Response.AddHeader "Cache-Control", "no-store, no-cache"
+
+Function colaJson(s)
+    Dim t : t = CStr(s)
+    t = Replace(t, "\", "\\")
+    t = Replace(t, """", "\""")
+    t = Replace(t, Chr(13), "\r")
+    t = Replace(t, Chr(10), "\n")
+    t = Replace(t, Chr(9), "\t")
+    colaJson = t
+End Function
 
 Dim conn, rs, sb, first, idSalida
 Set conn = Server.CreateObject("ADODB.Connection")
@@ -23,12 +38,12 @@ Do While Not rs.EOF
     If Not first Then sb = sb & ","
     first = False
     sb = sb & "{""id_salida"":" & idSalida & _
-              ",""movil"":""" & jsonEscape(Trim(rs("movil") & "")) & """" & _
-              ",""sms"":""" & jsonEscape(rs("sms") & "") & """}"
+              ",""movil"":""" & colaJson(Trim(rs("movil") & "")) & """" & _
+              ",""sms"":""" & colaJson(rs("sms") & "") & """}"
     rs.MoveNext
 Loop
 sb = sb & "]}"
 
 rs.Close : conn.Close
-Call jsonOk(sb)
+Response.Write sb
 %>
