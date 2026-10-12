@@ -31,7 +31,7 @@ const client = new Client({
 function ForzarCola() {
     console.log("Buscando Mensajes... " + " " + new Date());
          SacarColaSQL();
-        setTimeout(ForzarCola, 100000);
+        setTimeout(ForzarCola, 30000); // cada 30 segundos
 }
 
 
