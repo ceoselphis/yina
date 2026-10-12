@@ -1,10 +1,11 @@
-<!--#include file="../include/scriptdb/parametros.inc"-->
+<!--#include virtual="/smsalarmas/include/scriptdb/parametros.inc"-->
 <%
 ' GET /smsalarmas/api/cola_whatsapp.asp   (sin token)
 ' Mismos queries de JermSoft5/example3.js:
 '   SELECT id_salida, movil, sms FROM sSMS_BsalidaSpeedWhatsApp WHERE status = 0
 '   UPDATE sSMS_BsalidaSpeedWhatsApp SET status = 1 WHERE id_salida = <id>
 ' Devuelve los mensajes en JSON y los deja en status = 1.
+' Si algo falla devuelve {"ok":false,"paso":"...","error":"..."} en vez de un 500 mudo.
 
 Response.CodePage = 65001
 Response.CharSet = "utf-8"
@@ -22,18 +23,29 @@ Function colaJson(s)
     colaJson = t
 End Function
 
+Sub colaFalla(paso)
+    Response.Write "{""ok"":false,""paso"":""" & paso & """,""error"":""" & colaJson(Err.Number & " - " & Err.Description) & """}"
+    Response.End
+End Sub
+
 Dim conn, rs, sb, first, idSalida
+
+On Error Resume Next
+
 Set conn = Server.CreateObject("ADODB.Connection")
 conn.Open DB_CONNECTIONSTRING, DB_USERNAME, DB_PASSWORD
-conn.CursorLocation = adUseClient
+If Err.Number <> 0 Then Call colaFalla("conectar")
+conn.CursorLocation = 3
 
 Set rs = conn.Execute("SELECT id_salida, movil, sms FROM sSMS_BsalidaSpeedWhatsApp WHERE status = 0")
+If Err.Number <> 0 Then Call colaFalla("select")
 
 sb = "{""ok"":true,""items"":["
 first = True
 Do While Not rs.EOF
     idSalida = CStr(rs("id_salida"))
     conn.Execute "UPDATE sSMS_BsalidaSpeedWhatsApp SET status = 1 WHERE id_salida = " & idSalida
+    If Err.Number <> 0 Then Call colaFalla("update id_salida " & idSalida)
 
     If Not first Then sb = sb & ","
     first = False
@@ -41,9 +53,11 @@ Do While Not rs.EOF
               ",""movil"":""" & colaJson(Trim(rs("movil") & "")) & """" & _
               ",""sms"":""" & colaJson(rs("sms") & "") & """}"
     rs.MoveNext
+    If Err.Number <> 0 Then Call colaFalla("leyendo filas")
 Loop
 sb = sb & "]}"
 
-rs.Close : conn.Close
+rs.Close
+conn.Close
 Response.Write sb
 %>
